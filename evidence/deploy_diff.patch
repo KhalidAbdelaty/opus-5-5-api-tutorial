@@ -1,0 +1,20 @@
+diff --git a/checkout/payment_client.py b/checkout/payment_client.py
+index 6b1d0aa..a3f9c2e 100644
+--- a/checkout/payment_client.py
++++ b/checkout/payment_client.py
+@@ -8,10 +8,10 @@ def build_payment_session() -> requests.Session:
+     """Session used for all outbound calls to the payment gateway."""
+     session = requests.Session()
+     retry = Retry(
+-        total=3,
+-        status_forcelist={502, 504},
+-        allowed_methods={"GET"},
+-        backoff_factor=0.5,
++        total=3,
++        status_forcelist={502, 503, 504},
++        allowed_methods=None,
++        backoff_factor=0,
+     )
+     adapter = HTTPAdapter(max_retries=retry)
+     session.mount("https://", adapter)
+     return session

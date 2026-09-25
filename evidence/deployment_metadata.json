@@ -1,0 +1,15 @@
+{
+  "deployment_id": "dep-8841",
+  "service": "checkout-api",
+  "environment": "production",
+  "started_at": "2026-09-24T09:14:00.000Z",
+  "completed_at": "2026-09-24T09:14:47.000Z",
+  "commit_sha": "a3f9c2e",
+  "previous_commit_sha": "6b1d0aa",
+  "changed_files": [
+    "checkout/payment_client.py"
+  ],
+  "deployed_by": "ci-bot",
+  "rollout_strategy": "rolling",
+  "instances_updated": 6
+}

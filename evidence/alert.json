@@ -1,0 +1,7 @@
+{
+  "alert": "checkout-api 5xx rate above 2%",
+  "service": "checkout-api",
+  "instance": "checkout-api-3",
+  "fired_at": "2026-09-24T09:20:00.000Z",
+  "window_seconds": 30
+}
