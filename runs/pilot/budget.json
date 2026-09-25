@@ -1,0 +1,36 @@
+{
+  "pilots": [
+    {
+      "file": "runs\\pilot\\pilot_20260925T160524Z.json",
+      "stop": "finished",
+      "output_tokens": 5993,
+      "tool_result_tokens": 6597,
+      "total": 12590,
+      "counted": "output tokens of every investigation request, plus direct tool results and code execution output as Claude saw them; programmatic tool results and web search result content are not included",
+      "cost": 0.2789778
+    },
+    {
+      "file": "runs\\pilot\\pilot_20260925T160830Z.json",
+      "stop": "finished",
+      "output_tokens": 7492,
+      "tool_result_tokens": 5765,
+      "total": 13257,
+      "counted": "output tokens of every investigation request, plus direct tool results and code execution output as Claude saw them; programmatic tool results and web search result content are not included",
+      "cost": 0.25950300000000004
+    },
+    {
+      "file": "runs\\pilot\\pilot_20260925T161019Z.json",
+      "stop": "finished",
+      "output_tokens": 6866,
+      "tool_result_tokens": 6456,
+      "total": 13322,
+      "counted": "output tokens of every investigation request, plus direct tool results and code execution output as Claude saw them; programmatic tool results and web search result content are not included",
+      "cost": 0.2484572
+    }
+  ],
+  "pilots_used": 3,
+  "largest_spend": 13322,
+  "margin": 0.25,
+  "rounded_up_to": 5000,
+  "task_budget": 20000
+}

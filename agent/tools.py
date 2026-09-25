@@ -1,27 +1,33 @@
 ﻿"""Bounded, deterministic tool implementations for the HarborCart investigation
 agent.
 
-Design principle: Claude decides what
-evidence it needs; this module decides what it is allowed to access. Every
-tool here is read-only against a fixed evidence packet on disk, takes a
-narrow set of arguments, and returns plain JSON-serialisable data. None of
-them can write, delete, or reach outside `evidence/`.
+Design principle: Claude decides what evidence it needs; this module decides
+what it is allowed to access. Every tool here is read-only against a fixed
+evidence packet on disk, takes a narrow set of arguments, and returns plain
+JSON-serialisable data. None of them can write, delete, or reach outside
+`evidence/`.
 
 Two tool groups are exposed to the model (see agent.py):
-  - STRICT tools (get_deployment_context, run_counterfactual_replay,
-    record_hypothesis): declared with strict=True, so they are never used
-    with programmatic tool calling.
-  - FAN-OUT tools (query_app_logs, query_traces, query_metrics): declared
-    with allowed_callers including "code_execution_20260120", so Claude's
-    own sandboxed code can call them directly and in parallel when it wants
-    to scan many time windows or services at once. Strict schemas do not
-    apply on that path, so each function validates its own arguments.
+  - QUERY tools (query_app_logs, query_traces, query_metrics): callable only
+    from Claude's code execution (programmatic tool calling), so raw rows stay
+    in the sandbox and only the code's printed summary reaches the model.
+    Strict schemas do not apply on that path, so each function validates its
+    own arguments.
+  - CONTROL tools (get_deployment_context and the evidence-ledger tools in
+    agent.py): direct calls only, declared with strict=True.
+
+`allowed_callers` only guides the model; the API does not block a call from
+the other path. TOOL_CALLERS below is the policy the application enforces.
+
+run_counterfactual_replay is not a model tool: the application runs it from
+the approved replay plan.
 """
 from __future__ import annotations
 
 import json
 import os
 import sys
+from collections import Counter
 from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -32,12 +38,39 @@ if HERE not in sys.path:
 import sim  # noqa: E402
 
 _CACHE: dict[str, object] = {}
-RUN_STATE: dict[str, list] = {"hypotheses": [], "replays": []}
+
+CODE_EXECUTION = "code_execution"
+DIRECT = "direct"
+
+TOOL_CALLERS = {
+    "query_app_logs": CODE_EXECUTION,
+    "query_traces": CODE_EXECUTION,
+    "query_metrics": CODE_EXECUTION,
+    "get_deployment_context": DIRECT,
+    "record_finding": DIRECT,
+    "record_hypothesis": DIRECT,
+    "record_documentation": DIRECT,
+    "finish_investigation": DIRECT,
+}
 
 
-def reset_run_state() -> None:
-    RUN_STATE["hypotheses"] = []
-    RUN_STATE["replays"] = []
+def caller_kind(caller_type: str | None) -> str:
+    """Map a tool_use block's caller.type to DIRECT or CODE_EXECUTION."""
+    if caller_type and caller_type.startswith("code_execution"):
+        return CODE_EXECUTION
+    return DIRECT
+
+
+def check_caller(tool_name: str, caller_type: str | None) -> str | None:
+    """Return an error message if this caller may not use this tool, else None."""
+    required = TOOL_CALLERS.get(tool_name)
+    if required is None:
+        return f"unknown tool '{tool_name}'"
+    actual = caller_kind(caller_type)
+    if actual != required:
+        where = "from code execution" if required == CODE_EXECUTION else "directly, not from code execution"
+        return f"{tool_name} can only be called {where}"
+    return None
 
 
 def _load_jsonl(name: str) -> list[dict]:
@@ -87,15 +120,15 @@ def _in_window(ts: str, start_time: str | None, end_time: str | None) -> bool:
 
 
 # --------------------------------------------------------------------------
-# Fan-out tools: safe to call many times in parallel via PTC
+# Query tools: code execution only
 # --------------------------------------------------------------------------
 
 MAX_ROWS = 200
 
 
 def query_app_logs(start_time: str | None = None, end_time: str | None = None,
-                    service: str | None = None, level: str | None = None,
-                    contains: str | None = None) -> dict:
+                   service: str | None = None, level: str | None = None,
+                   contains: str | None = None) -> dict:
     """Query application/service log lines in a time window."""
     for name, value in (("start_time", start_time), ("end_time", end_time), ("service", service),
                         ("level", level), ("contains", contains)):
@@ -104,7 +137,7 @@ def query_app_logs(start_time: str | None = None, end_time: str | None = None,
         level = LEVEL_ALIASES.get(level.upper(), level.upper())
     rows = []
     for name in ("app_logs.jsonl", "payment_gateway_logs.jsonl",
-                  "inventory_service_warning.log", "frontend_console_warning.log"):
+                 "inventory_service_warning.log", "frontend_console_warning.log"):
         try:
             rows.extend(_load_jsonl(name))
         except FileNotFoundError:
@@ -121,13 +154,14 @@ def query_app_logs(start_time: str | None = None, end_time: str | None = None,
             continue
         out.append(r)
     out.sort(key=lambda r: r["timestamp"])
-    truncated = len(out) > MAX_ROWS
-    return {"count": len(out), "truncated": truncated, "rows": out[:MAX_ROWS]}
+    services = dict(Counter(r.get("service", "unknown") for r in out))
+    return {"count": len(out), "truncated": len(out) > MAX_ROWS, "services": services,
+            "rows": out[:MAX_ROWS]}
 
 
 def query_traces(start_time: str | None = None, end_time: str | None = None,
-                  outcome: str | None = None, request_id: str | None = None,
-                  path: str | None = None) -> dict:
+                 outcome: str | None = None, request_id: str | None = None,
+                 path: str | None = None) -> dict:
     """Query request traces (span breakdowns) in a time window."""
     for name, value in (("start_time", start_time), ("end_time", end_time), ("outcome", outcome),
                         ("request_id", request_id), ("path", path)):
@@ -145,12 +179,11 @@ def query_traces(start_time: str | None = None, end_time: str | None = None,
             continue
         out.append(r)
     out.sort(key=lambda r: r["start"])
-    truncated = len(out) > MAX_ROWS
-    return {"count": len(out), "truncated": truncated, "rows": out[:MAX_ROWS]}
+    return {"count": len(out), "truncated": len(out) > MAX_ROWS, "rows": out[:MAX_ROWS]}
 
 
 def query_metrics(metric_name: str, start_time: str | None = None,
-                   end_time: str | None = None) -> dict:
+                  end_time: str | None = None) -> dict:
     """Query a single metric's time series in a window, downsampled to at
     most 60 points so a wide window does not flood the context."""
     for name, value in (("metric_name", metric_name), ("start_time", start_time),
@@ -158,7 +191,7 @@ def query_metrics(metric_name: str, start_time: str | None = None,
         _check_str(name, value)
     metrics = _load_json("metrics.json")
     if metric_name not in metrics:
-        return {"error": f"unknown metric '{metric_name}'", "available": sorted(metrics)}
+        raise ValueError(f"unknown metric '{metric_name}'; available: {sorted(metrics)}")
     points = [p for p in metrics[metric_name] if _in_window(p["t"], start_time, end_time)]
     if len(points) > 60:
         step = len(points) / 60
@@ -167,7 +200,7 @@ def query_metrics(metric_name: str, start_time: str | None = None,
 
 
 # --------------------------------------------------------------------------
-# Strict tools: direct calls only, never used inside programmatic tool code
+# Deployment context: direct only
 # --------------------------------------------------------------------------
 
 def get_deployment_context() -> dict:
@@ -182,14 +215,12 @@ def get_deployment_context() -> dict:
     return {"deployment_metadata": meta, "deploy_diff": diff, "runbook": runbook}
 
 
-def record_hypothesis(hypothesis: str, confidence: str, supporting_evidence: str,
-                      evidence_source: str) -> dict:
-    """Log a working hypothesis for the run's audit trail. It changes no
-    other tool's behavior."""
-    entry = {"hypothesis": hypothesis, "confidence": confidence,
-             "supporting_evidence": supporting_evidence, "evidence_source": evidence_source}
-    RUN_STATE["hypotheses"].append(entry)
-    return {"recorded": True, "total_hypotheses_recorded": len(RUN_STATE["hypotheses"])}
+EVIDENCE_TOOL_EXECUTORS = {
+    "query_app_logs": query_app_logs,
+    "query_traces": query_traces,
+    "query_metrics": query_metrics,
+    "get_deployment_context": get_deployment_context,
+}
 
 
 # --------------------------------------------------------------------------
@@ -197,10 +228,23 @@ def record_hypothesis(hypothesis: str, confidence: str, supporting_evidence: str
 # generated the evidence packet, with only the requested changes applied.
 # --------------------------------------------------------------------------
 
+DEPLOYED_SCENARIO = {
+    "revert_retry_policy": False,
+    "remove_gateway_burst": False,
+    "pool_capacity": sim.POOL_CAPACITY,
+    "release_connection_before_gateway": False,
+}
+
+
 def run_counterfactual_replay(revert_retry_policy: bool, remove_gateway_burst: bool,
                               pool_capacity: int,
                               release_connection_before_gateway: bool) -> dict:
-    if not isinstance(pool_capacity, int) or not 1 <= pool_capacity <= 500:
+    for name, value in (("revert_retry_policy", revert_retry_policy),
+                        ("remove_gateway_burst", remove_gateway_burst),
+                        ("release_connection_before_gateway", release_connection_before_gateway)):
+        if not isinstance(value, bool):
+            raise ValueError(f"{name} must be a boolean")
+    if isinstance(pool_capacity, bool) or not isinstance(pool_capacity, int) or not 1 <= pool_capacity <= 500:
         raise ValueError("pool_capacity must be an integer between 1 and 500")
     requests = sim.simulate(
         retry_policy="previous" if revert_retry_policy else "deployed",
@@ -208,7 +252,7 @@ def run_counterfactual_replay(revert_retry_policy: bool, remove_gateway_burst: b
         pool_capacity=pool_capacity,
         release_connection_before_gateway=release_connection_before_gateway,
     )
-    result = {
+    return {
         "scenario": {
             "revert_retry_policy": revert_retry_policy,
             "remove_gateway_burst": remove_gateway_burst,
@@ -217,18 +261,3 @@ def run_counterfactual_replay(revert_retry_policy: bool, remove_gateway_burst: b
         },
         **sim.summarize(requests, pool_capacity),
     }
-    RUN_STATE["replays"].append(result)
-    return result
-STRICT_TOOL_EXECUTORS = {
-    "get_deployment_context": get_deployment_context,
-    "run_counterfactual_replay": run_counterfactual_replay,
-    "record_hypothesis": record_hypothesis,
-}
-
-FANOUT_TOOL_EXECUTORS = {
-    "query_app_logs": query_app_logs,
-    "query_traces": query_traces,
-    "query_metrics": query_metrics,
-}
-
-ALL_TOOL_EXECUTORS = {**STRICT_TOOL_EXECUTORS, **FANOUT_TOOL_EXECUTORS}

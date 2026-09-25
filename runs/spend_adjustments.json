@@ -1,0 +1,12 @@
+[
+  {
+    "reason": "first_call.py and check_tool_choice.py smoke test on anthropic 1.8.0",
+    "usd": 0.02,
+    "estimate": true
+  },
+  {
+    "reason": "measured run that crashed in compare_plans after all API calls: investigation $0.0524 + medium plan $0.0614 + high plan $0.0668 from the console, report request not printed and estimated at $0.12",
+    "usd": 0.30,
+    "estimate": true
+  }
+]

@@ -1,0 +1,1015 @@
+{
+  "model": "claude-opus-5-5",
+  "pilot": false,
+  "task_budget": 20000,
+  "stop_threshold_usd": 2.5,
+  "spent_before": 1.6699366000000002,
+  "red_herrings": {
+    "inventory_warning": "inventory-service low-stock warning (SKU HC-2291 below reorder threshold)",
+    "frontend_warning": "web-frontend warning about the deprecated legacyTrack() analytics snippet",
+    "cpu_saturation": "host CPU saturation on checkout-api-3"
+  },
+  "min_red_herrings_checked": 2,
+  "investigation": {
+    "stop": "finished",
+    "turns": 3,
+    "nudges": 0,
+    "task_budget": 20000,
+    "budget_measurement": {
+      "output_tokens": 1933,
+      "tool_result_tokens": 1808,
+      "total": 3741,
+      "counted": "output tokens of every investigation request, plus direct tool results and code execution output as Claude saw them; programmatic tool results and web search result content are not included"
+    },
+    "direct_tool_calls": 8,
+    "ptc_tool_calls": 5,
+    "caller_rejections": 0,
+    "direct_result_bytes": 3787,
+    "ptc_result_bytes": 43934,
+    "sandbox_output_bytes": 479,
+    "code_executions": 1,
+    "progress_updates": 0,
+    "web_search_results": 0
+  },
+  "evidence_snapshot": {
+    "sources": [
+      {
+        "id": "S01",
+        "tool": "get_deployment_context",
+        "args": {},
+        "caller": "direct",
+        "row_count": 0,
+        "result_bytes": 3635,
+        "services": {},
+        "metric": null
+      },
+      {
+        "id": "S02",
+        "tool": "query_traces",
+        "args": {
+          "start_time": "2026-09-24T09:18:00Z",
+          "end_time": "2026-09-24T09:23:00Z",
+          "outcome": "503_pool_timeout"
+        },
+        "caller": "code_execution",
+        "row_count": 105,
+        "result_bytes": 25933,
+        "services": {},
+        "metric": null
+      },
+      {
+        "id": "S03",
+        "tool": "query_metrics",
+        "args": {
+          "metric_name": "payment_gateway_5xx_rate",
+          "start_time": "2026-09-24T09:18:00Z",
+          "end_time": "2026-09-24T09:23:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 60,
+        "result_bytes": 2785,
+        "services": {},
+        "metric": "payment_gateway_5xx_rate"
+      },
+      {
+        "id": "S04",
+        "tool": "query_metrics",
+        "args": {
+          "metric_name": "db_pool_in_use",
+          "start_time": "2026-09-24T09:18:00Z",
+          "end_time": "2026-09-24T09:23:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 60,
+        "result_bytes": 2649,
+        "services": {},
+        "metric": "db_pool_in_use"
+      },
+      {
+        "id": "S05",
+        "tool": "query_metrics",
+        "args": {
+          "metric_name": "cpu_percent",
+          "start_time": "2026-09-24T09:18:00Z",
+          "end_time": "2026-09-24T09:23:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 60,
+        "result_bytes": 2810,
+        "services": {},
+        "metric": "cpu_percent"
+      },
+      {
+        "id": "S06",
+        "tool": "query_app_logs",
+        "args": {
+          "start_time": "2026-09-24T09:18:00Z",
+          "end_time": "2026-09-24T09:23:00Z",
+          "level": "WARN"
+        },
+        "caller": "code_execution",
+        "row_count": 36,
+        "result_bytes": 9657,
+        "services": {
+          "checkout-api": 34,
+          "web-frontend": 1,
+          "inventory-service": 1
+        },
+        "metric": null
+      }
+    ],
+    "findings": [
+      {
+        "id": "F01",
+        "claim": "dep-8841 (09:14) changed payment retry: 503 added to status_forcelist, allowed_methods=None (POST now retried), backoff 0. The DB connection is held through the payment call, including retries.",
+        "source_ids": [
+          "S01"
+        ],
+        "alternative": "none"
+      },
+      {
+        "id": "F02",
+        "claim": "Gateway 5xx peaked at 87%. db_pool_in_use hit 15/15. There were 105 checkout traces with outcome 503_pool_timeout that waited 10000ms in db.acquire_connection: the 503s came from the app's own pool, not the gateway.",
+        "source_ids": [
+          "S03",
+          "S04",
+          "S02"
+        ],
+        "alternative": "none"
+      },
+      {
+        "id": "F03",
+        "claim": "CPU peaked at 36.3%, far from saturation, so CPU did not cause the failure.",
+        "source_ids": [
+          "S05"
+        ],
+        "alternative": "cpu_saturation"
+      },
+      {
+        "id": "F04",
+        "claim": "inventory-service logged a single WARN (SKU HC-2291 low stock). This is a routine business warning and the stock check is async, so it can't explain the pool exhaustion.",
+        "source_ids": [
+          "S06"
+        ],
+        "alternative": "inventory_warning"
+      },
+      {
+        "id": "F05",
+        "claim": "web-frontend logged a single WARN about the deprecated legacyTrack() analytics snippet. This is client-side and has nothing to do with the checkout-api DB pool.",
+        "source_ids": [
+          "S06"
+        ],
+        "alternative": "frontend_warning"
+      }
+    ],
+    "hypotheses": [
+      {
+        "id": "H01",
+        "hypothesis": "Trigger: a burst of payment-gateway 503s (~09:19:40). Root cause: dep-8841's retry config (retry POST on 503, no backoff) combined with holding the DB connection through the payment call, which exhausted the 15-connection pool. Failure mode: checkout-api returned its own 503s after the 10s pool timeout, on all endpoints, with p95 around 40s.",
+        "confidence": "high",
+        "supporting_evidence": "Diff and runbook contract; pool at 15/15; 105 pool_timeout traces with 10s acquire waits; CPU normal; inventory and frontend warnings unrelated.",
+        "source_ids": [
+          "S01",
+          "S02",
+          "S03",
+          "S04"
+        ]
+      }
+    ],
+    "documentation": [],
+    "alternatives_examined": [
+      "cpu_saturation",
+      "frontend_warning",
+      "inventory_warning"
+    ]
+  },
+  "t": 108.8,
+  "type": "done",
+  "stop": "report",
+  "report": {
+    "verdict": "verified",
+    "trigger": "A burst of payment-gateway 5xx/503 responses (gateway 5xx peaked at 87%; H01 places the burst around 09:19:40 on 2026-09-24). R04 shows that with the burst removed, the as-deployed system produced zero 503s.",
+    "root_cause": "dep-8841 (deployed 09:14) changed the payment retry policy: it added 503 to status_forcelist, set allowed_methods=None so POST is retried, and set backoff to 0. checkout-api also holds its DB connection through the payment call, including all retries. Together, zero-backoff retries of gateway 503s kept connections checked out and exhausted the 15-connection DB pool.",
+    "failure_mode": "checkout-api returned its own 503s after a 10,000ms wait in db.acquire_connection (outcome 503_pool_timeout, 105 traces). This hit all endpoints, not just checkout. In the baseline replay, read requests returned 68 503s with p95 of 10,000ms, and checkout POST p95 was about 40.6s. The pool was saturated for 76s, and errors continued about 4.4s after the gateway recovered.",
+    "contributing_factors": [
+      "Small DB pool capacity (15). With capacity 120, R05 shows no pool exhaustion and no read-request 503s. Pool size amplified the impact, but a larger pool alone left checkout POST p95 at about 37.9s because retries were still amplified.",
+      "Zero backoff on retries, which increases how long each checkout holds its connection (F01, H01).",
+      "Retrying non-idempotent POST requests (allowed_methods=None) in the payment path (F01)."
+    ],
+    "ruled_out": [
+      "CPU saturation: cpu_percent peaked at 36.3%, far from saturation (F03, S05).",
+      "inventory-service warning: a single routine low-stock WARN for SKU HC-2291 from an async stock check cannot explain DB pool exhaustion in checkout-api (F04, S06).",
+      "web-frontend warning: a single client-side WARN about the deprecated legacyTrack() analytics snippet, unrelated to the checkout-api DB pool (F05, S06).",
+      "Gateway directly causing the customer-facing 503s: the 105 503_pool_timeout traces waited 10,000ms in db.acquire_connection, so the 503s came from the app's own pool (F02, S02). In the baseline, pool_timeout_503s were 105 versus gateway_503s of 19 (R01).",
+      "Deploy alone exhausting the pool under normal traffic: with the gateway burst removed, R04 had 0 503s, p95 checkout of 226ms, and no pool exhaustion."
+    ],
+    "alternatives": [
+      {
+        "alternative": "cpu_saturation",
+        "conclusion": "ruled_out",
+        "reason": "CPU peaked at 36.3%, far from saturation.",
+        "evidence_ids": [
+          "F03",
+          "S05"
+        ]
+      },
+      {
+        "alternative": "frontend_warning",
+        "conclusion": "ruled_out",
+        "reason": "A single client-side WARN about the deprecated legacyTrack() analytics snippet has no connection to the checkout-api DB pool.",
+        "evidence_ids": [
+          "F05",
+          "S06"
+        ]
+      },
+      {
+        "alternative": "inventory_warning",
+        "conclusion": "ruled_out",
+        "reason": "A single routine low-stock WARN (SKU HC-2291); the stock check is async and cannot explain pool exhaustion.",
+        "evidence_ids": [
+          "F04",
+          "S06"
+        ]
+      }
+    ],
+    "counterfactual_evidence": "Baseline R01 (as deployed): 124 total 503s, of which 105 were pool timeouts and 68 were read-request 503s; pool saturated for 76s; checkout POST p95 40,568ms; pool exhaustion occurred.\n\nR02 (retry policy reverted only): 0 pool timeouts, 0 read 503s, 0s saturated, no exhaustion. The 93 gateway 503s surfaced directly on checkout POST, with p95 of 11,125ms. This shows the retry policy was necessary for exhaustion.\n\nR03 (release connection before gateway only): no exhaustion, 0 read 503s, 33 gateway 503s. Checkout POST p95 was still 37,938ms with 93 retried checkouts. This shows holding the connection was necessary for pool coupling, while retries still drove latency.\n\nR04 (gateway burst removed only): 0 503s, checkout p95 226ms, no exhaustion. This confirms the burst was the trigger.\n\nR05 (pool capacity 120 only): no exhaustion and 0 read 503s. Checkout POST p95 was still 37,938ms with 93 retried checkouts. A larger pool masks the coupling but does not remove retry amplification.\n\nTogether, these support H01: the burst triggered the incident, and retry policy plus connection holding produced the exhaustion.",
+    "replay_ids": [
+      "R01",
+      "R02",
+      "R03",
+      "R04",
+      "R05"
+    ],
+    "documentation_evidence": "",
+    "documentation_ids": [],
+    "evidence_citations": [
+      "dep-8841 diff: 503 added to status_forcelist",
+      "dep-8841 diff: allowed_methods=None (POST retried)",
+      "dep-8841 diff: backoff 0",
+      "metric payment_gateway_5xx_rate peak 87%",
+      "metric db_pool_in_use = 15/15",
+      "metric cpu_percent peak 36.3%",
+      "105 traces with outcome 503_pool_timeout waiting 10000ms in db.acquire_connection",
+      "WARN inventory-service: SKU HC-2291 low stock",
+      "WARN web-frontend: deprecated legacyTrack() analytics snippet"
+    ],
+    "evidence_ids": [
+      "S01",
+      "S02",
+      "S03",
+      "S04",
+      "S05",
+      "S06",
+      "F01",
+      "F02",
+      "F03",
+      "F04",
+      "F05",
+      "H01"
+    ],
+    "remaining_uncertainty": "The replays are a model (5,576 modeled requests), not production reruns, so the absolute counts are approximate.\n\nThe exact burst start time (~09:19:40) is stated in H01, but no finding pins it down.\n\nH01 cites a 'runbook contract', but no documentation entries were consulted, so the connection-holding behavior rests on the deployment context (S01) only.\n\nThe ledger does not examine whether retried non-idempotent POSTs caused duplicate payment attempts or charges.\n\nR02 shows that reverting the retry policy increases directly surfaced gateway 503s on checkout POST (93 vs 56 in the baseline), so the trade-off in customer-visible checkout errors is not fully settled.",
+    "recommended_fix": "1. Revert dep-8841's payment retry changes: remove 503 from status_forcelist for the payment call, stop retrying non-idempotent POST (restore allowed_methods to exclude POST), and restore non-zero backoff. R02 shows this eliminates pool exhaustion.\n2. Release the DB connection before calling the payment gateway, so gateway latency and retries cannot hold pool connections. R03 shows this alone prevents exhaustion and read-request failures.\n3. Treat pool enlargement (R05) as secondary hardening only. It prevents exhaustion but leaves checkout p95 near 38s.",
+    "confidence": "high"
+  },
+  "report_accepted": true,
+  "report_attempts": 1,
+  "report_problems": [],
+  "replay_plans": {
+    "medium": {
+      "effort": "medium",
+      "stop_reason": "end_turn",
+      "plan": {
+        "leading_hypothesis": "H01: The payment-gateway 503 burst at about 09:19:40 was only the trigger. The root cause was dep-8841's retry config (POST retried on 503 with zero backoff) combined with holding the DB connection through the payment call and its retries. Together these exhausted the 15-connection pool, and checkout-api returned its own 503s after the 10s acquire timeout.",
+        "hypothesis_ids": [
+          "H01"
+        ],
+        "scenarios": [
+          {
+            "name": "revert_retry_only",
+            "purpose": "Tests whether dep-8841's retry policy is necessary for pool exhaustion. This separates H01 from the competitor that the gateway burst plus connection holding alone would have exhausted the pool.",
+            "revert_retry_policy": true,
+            "remove_gateway_burst": false,
+            "pool_capacity": 15,
+            "release_connection_before_gateway": false,
+            "expected_if_hypothesis_true": "The gateway burst still occurs, but pool-saturated seconds drop to about 0. The 503_pool_timeout count falls from about 105 to about 0. Any remaining 503s are payment-endpoint gateway failures only, not all endpoints. p95 drops from about 40s toward normal.",
+            "expected_if_hypothesis_false": "The pool still saturates and pool_timeout 503s remain near baseline. That would mean the retry change was not necessary, and connection holding or undersizing alone explains the outage."
+          },
+          {
+            "name": "release_connection_before_gateway_only",
+            "purpose": "Tests whether holding the DB connection across the gateway call is necessary. This separates H01 from the competitor that retries caused pure load or latency without pool coupling.",
+            "revert_retry_policy": false,
+            "remove_gateway_burst": false,
+            "pool_capacity": 15,
+            "release_connection_before_gateway": true,
+            "expected_if_hypothesis_true": "Retries still hammer the gateway, and payment-endpoint latency or errors may rise. But the DB pool does not saturate, pool_timeout 503s are about 0, and non-payment endpoints return no 503s.",
+            "expected_if_hypothesis_false": "The pool still saturates and pool_timeout 503s persist. That would mean something other than connections held during payment calls consumed the pool."
+          },
+          {
+            "name": "remove_gateway_burst_only",
+            "purpose": "Tests whether the gateway 503 burst was the trigger. This rules out the competitor that the deploy alone, under normal traffic, exhausted the pool without any gateway failure.",
+            "revert_retry_policy": false,
+            "remove_gateway_burst": true,
+            "pool_capacity": 15,
+            "release_connection_before_gateway": false,
+            "expected_if_hypothesis_true": "There is no pool saturation, no pool_timeout 503s, and p95 is normal. The deployed config is latent and harmless without gateway 503s.",
+            "expected_if_hypothesis_false": "The pool saturates or 503s appear even without the burst. That would indicate a different trigger, such as the deployed config or normal load exhausting 15 connections."
+          },
+          {
+            "name": "large_pool_only",
+            "purpose": "Tests the competitor that the pool was simply undersized (capacity as root cause) against H01's claim that zero-backoff retry amplification drives demand.",
+            "revert_retry_policy": false,
+            "remove_gateway_burst": false,
+            "pool_capacity": 120,
+            "release_connection_before_gateway": false,
+            "expected_if_hypothesis_true": "Saturation is delayed or shortened but not cleanly eliminated. Connections held during repeated zero-backoff retries still pile up while gateway 5xx stays near 87%. Some pool_timeout 503s or elevated payment p95 remain, and the improvement is clearly weaker than in the revert_retry_only or release_connection scenarios.",
+            "expected_if_hypothesis_false": "An 8x larger pool fully eliminates saturation and 503s with normal p95, as effectively as the retry revert. That would point to undersizing rather than retry amplification as the dominant cause."
+          }
+        ],
+        "decision_rule": "Precondition: the baseline must reproduce about 105 503_pool_timeout errors across all endpoints, a saturated 15/15 pool, and p95 around 40s; otherwise the result is inconclusive. H01 is verified if all three of the following hold. First, revert_retry_only and release_connection_before_gateway_only each reduce pool-saturated seconds and pool_timeout 503s to about 0, with any residual 503s limited to gateway-caused payment failures. Second, remove_gateway_burst_only shows no saturation. Third, large_pool_only does not outperform the retry revert. If either single-factor fix leaves substantial pool_timeout 503s, the result is inconclusive. It is also inconclusive if the no-burst replay still saturates, or if pool enlargement alone fully resolves the outage as well as the retry revert does. In those cases a competing mechanism must be investigated."
+      },
+      "output_tokens": 2065,
+      "cost": 0.05352,
+      "problems": []
+    },
+    "high": {
+      "effort": "high",
+      "stop_reason": "end_turn",
+      "plan": {
+        "leading_hypothesis": "H01: the payment-gateway 503 burst (~09:19:40) was only the trigger. The root cause was dep-8841's retry policy (POST retried on 503 with zero backoff) combined with holding the DB connection through the payment call and its retries. Together these exhausted the 15-connection pool. checkout-api then returned its own 503s after the 10s acquire timeout on all endpoints, with p95 around 40s.",
+        "hypothesis_ids": [
+          "H01"
+        ],
+        "scenarios": [
+          {
+            "name": "revert_retry_only",
+            "purpose": "Tests the retry-policy half of H01 against the competitor that the gateway burst plus connection holding exhausts the pool even under the old retry policy.",
+            "revert_retry_policy": true,
+            "remove_gateway_burst": false,
+            "pool_capacity": 15,
+            "release_connection_before_gateway": false,
+            "expected_if_hypothesis_true": "Pool-timeout 503s fall from ~105 to near zero. No 503s appear on non-checkout endpoints. DB pool saturation seconds are near zero and p95 returns close to normal. Any remaining checkout 503s are attributed to the gateway, not to pool timeout.",
+            "expected_if_hypothesis_false": "The pool still reaches 15/15 for a substantial time. Pool-timeout 503s persist on checkout and other endpoints and p95 stays high, meaning the burst plus connection holding is enough without the new retry policy."
+          },
+          {
+            "name": "release_connection_before_gateway_only",
+            "purpose": "Tests the connection-holding half of H01, and whether the DB-side mechanism (not the gateway alone) turns gateway failures into app-wide 503s.",
+            "revert_retry_policy": false,
+            "remove_gateway_burst": false,
+            "pool_capacity": 15,
+            "release_connection_before_gateway": true,
+            "expected_if_hypothesis_true": "Pool saturation is near zero and pool-timeout 503s disappear, including on non-checkout endpoints. Checkout may still see gateway-caused failures or latency from retries, but no 10s acquire waits and no app-wide 40s p95.",
+            "expected_if_hypothesis_false": "The pool still saturates and pool-timeout 503s persist even though no connection is held during the gateway call. That would point to another consumer of connections, contradicting H01's mechanism."
+          },
+          {
+            "name": "remove_gateway_burst_only",
+            "purpose": "Confirms the burst is the trigger, and refutes the competitor that the new retry config or the pool size fails under normal incident traffic on its own.",
+            "revert_retry_policy": false,
+            "remove_gateway_burst": true,
+            "pool_capacity": 15,
+            "release_connection_before_gateway": false,
+            "expected_if_hypothesis_true": "No pool saturation, no pool-timeout 503s on any endpoint, and normal p95, despite the deployed retry config and connection holding.",
+            "expected_if_hypothesis_false": "The pool still saturates or pool-timeout 503s still occur without the burst. That would mean baseline load or the pool size, not a gateway-triggered retry storm, drives the failure."
+          },
+          {
+            "name": "pool_capacity_60_only",
+            "purpose": "Tests the competitor that the 15-connection pool is simply undersized, as opposed to H01's claim that retry amplification with held connections inflates connection hold time.",
+            "revert_retry_policy": false,
+            "remove_gateway_burst": false,
+            "pool_capacity": 60,
+            "release_connection_before_gateway": false,
+            "expected_if_hypothesis_true": "Saturation is delayed or shortened but not eliminated. Pool-timeout 503s drop only partly and p95 stays elevated during the burst, because zero-backoff POST retries multiply how long each checkout holds a connection. A bigger pool mitigates the failure but does not fix it.",
+            "expected_if_hypothesis_false": "A 4x pool fully removes saturation, pool-timeout 503s and the latency spike, just as the revert and release replays do. That would indicate plain undersizing rather than retry amplification."
+          }
+        ],
+        "decision_rule": "First, the auto-run baseline must reproduce the incident: pool at 15/15, about 105 checkout pool_timeout 503s with 10s acquire waits, non-checkout 503s, and p95 around 40s. If it does not, the result is inconclusive. H01 is VERIFIED only if all three of these hold: (1) revert_retry_only and release_connection_before_gateway_only each bring pool saturation seconds and pool-timeout 503s on all endpoints to near zero, with p95 near normal; (2) remove_gateway_burst_only shows no saturation; (3) pool_capacity_60_only leaves residual saturation or pool-timeout 503s, or clearly worse p95, than the revert and release replays. The result is INCONCLUSIVE if any of the following occurs: either single fix leaves substantial saturation or pool-timeout 503s; saturation occurs without the burst; the 60-connection pool eliminates the failure as fully as the revert and release fixes, which cannot separate undersizing from amplification; or 503 causes shift to an unexplained category. CPU, inventory and frontend alternatives were already refuted in F03-F05 and are not replayable with these parameters."
+      },
+      "output_tokens": 2691,
+      "cost": 0.06604
+    }
+  },
+  "plan_comparison": {
+    "medium_scenarios": 4,
+    "high_scenarios": 4,
+    "shared": [
+      {
+        "pool_capacity": 15,
+        "release_connection_before_gateway": false,
+        "remove_gateway_burst": false,
+        "revert_retry_policy": true
+      },
+      {
+        "pool_capacity": 15,
+        "release_connection_before_gateway": false,
+        "remove_gateway_burst": true,
+        "revert_retry_policy": false
+      },
+      {
+        "pool_capacity": 15,
+        "release_connection_before_gateway": true,
+        "remove_gateway_burst": false,
+        "revert_retry_policy": false
+      }
+    ],
+    "medium_only": [
+      {
+        "pool_capacity": 120,
+        "release_connection_before_gateway": false,
+        "remove_gateway_burst": false,
+        "revert_retry_policy": false
+      }
+    ],
+    "high_only": [
+      {
+        "pool_capacity": 60,
+        "release_connection_before_gateway": false,
+        "remove_gateway_burst": false,
+        "revert_retry_policy": false
+      }
+    ],
+    "same_hypothesis_ids": true
+  },
+  "replays": [
+    {
+      "scenario": {
+        "revert_retry_policy": false,
+        "remove_gateway_burst": false,
+        "pool_capacity": 15,
+        "release_connection_before_gateway": false
+      },
+      "requests_modeled": 5576,
+      "total_503s": 124,
+      "checkout_post_503s": 56,
+      "read_request_503s": 68,
+      "pool_timeout_503s": 105,
+      "gateway_503s": 19,
+      "retried_checkouts": 53,
+      "seconds_pool_saturated": 76,
+      "p95_latency_ms_checkout_post": 40568,
+      "p95_latency_ms_read_requests": 10000,
+      "errors_end_after_gateway_recovers_s": 4.4,
+      "pool_exhaustion_occurred": true,
+      "id": "R01",
+      "name": "as deployed (baseline)"
+    },
+    {
+      "scenario": {
+        "revert_retry_policy": true,
+        "remove_gateway_burst": false,
+        "pool_capacity": 15,
+        "release_connection_before_gateway": false
+      },
+      "requests_modeled": 5576,
+      "total_503s": 93,
+      "checkout_post_503s": 93,
+      "read_request_503s": 0,
+      "pool_timeout_503s": 0,
+      "gateway_503s": 93,
+      "retried_checkouts": 0,
+      "seconds_pool_saturated": 0,
+      "p95_latency_ms_checkout_post": 11125,
+      "p95_latency_ms_read_requests": 49,
+      "errors_end_after_gateway_recovers_s": 11.0,
+      "pool_exhaustion_occurred": false,
+      "id": "R02",
+      "name": "revert_retry_only"
+    },
+    {
+      "scenario": {
+        "revert_retry_policy": false,
+        "remove_gateway_burst": false,
+        "pool_capacity": 15,
+        "release_connection_before_gateway": true
+      },
+      "requests_modeled": 5576,
+      "total_503s": 33,
+      "checkout_post_503s": 33,
+      "read_request_503s": 0,
+      "pool_timeout_503s": 0,
+      "gateway_503s": 33,
+      "retried_checkouts": 93,
+      "seconds_pool_saturated": 0,
+      "p95_latency_ms_checkout_post": 37938,
+      "p95_latency_ms_read_requests": 49,
+      "errors_end_after_gateway_recovers_s": 10.0,
+      "pool_exhaustion_occurred": false,
+      "id": "R03",
+      "name": "release_connection_before_gateway_only"
+    },
+    {
+      "scenario": {
+        "revert_retry_policy": false,
+        "remove_gateway_burst": true,
+        "pool_capacity": 15,
+        "release_connection_before_gateway": false
+      },
+      "requests_modeled": 5576,
+      "total_503s": 0,
+      "checkout_post_503s": 0,
+      "read_request_503s": 0,
+      "pool_timeout_503s": 0,
+      "gateway_503s": 0,
+      "retried_checkouts": 0,
+      "seconds_pool_saturated": 0,
+      "p95_latency_ms_checkout_post": 226,
+      "p95_latency_ms_read_requests": 49,
+      "errors_end_after_gateway_recovers_s": null,
+      "pool_exhaustion_occurred": false,
+      "id": "R04",
+      "name": "remove_gateway_burst_only"
+    },
+    {
+      "scenario": {
+        "revert_retry_policy": false,
+        "remove_gateway_burst": false,
+        "pool_capacity": 120,
+        "release_connection_before_gateway": false
+      },
+      "requests_modeled": 5576,
+      "total_503s": 33,
+      "checkout_post_503s": 33,
+      "read_request_503s": 0,
+      "pool_timeout_503s": 0,
+      "gateway_503s": 33,
+      "retried_checkouts": 93,
+      "seconds_pool_saturated": 0,
+      "p95_latency_ms_checkout_post": 37938,
+      "p95_latency_ms_read_requests": 49,
+      "errors_end_after_gateway_recovers_s": 10.0,
+      "pool_exhaustion_occurred": false,
+      "id": "R05",
+      "name": "large_pool_only"
+    }
+  ],
+  "evidence_ledger": {
+    "sources": [
+      {
+        "id": "S01",
+        "tool": "get_deployment_context",
+        "args": {},
+        "caller": "direct",
+        "row_count": 0,
+        "result_bytes": 3635,
+        "services": {},
+        "metric": null
+      },
+      {
+        "id": "S02",
+        "tool": "query_traces",
+        "args": {
+          "start_time": "2026-09-24T09:18:00Z",
+          "end_time": "2026-09-24T09:23:00Z",
+          "outcome": "503_pool_timeout"
+        },
+        "caller": "code_execution",
+        "row_count": 105,
+        "result_bytes": 25933,
+        "services": {},
+        "metric": null
+      },
+      {
+        "id": "S03",
+        "tool": "query_metrics",
+        "args": {
+          "metric_name": "payment_gateway_5xx_rate",
+          "start_time": "2026-09-24T09:18:00Z",
+          "end_time": "2026-09-24T09:23:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 60,
+        "result_bytes": 2785,
+        "services": {},
+        "metric": "payment_gateway_5xx_rate"
+      },
+      {
+        "id": "S04",
+        "tool": "query_metrics",
+        "args": {
+          "metric_name": "db_pool_in_use",
+          "start_time": "2026-09-24T09:18:00Z",
+          "end_time": "2026-09-24T09:23:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 60,
+        "result_bytes": 2649,
+        "services": {},
+        "metric": "db_pool_in_use"
+      },
+      {
+        "id": "S05",
+        "tool": "query_metrics",
+        "args": {
+          "metric_name": "cpu_percent",
+          "start_time": "2026-09-24T09:18:00Z",
+          "end_time": "2026-09-24T09:23:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 60,
+        "result_bytes": 2810,
+        "services": {},
+        "metric": "cpu_percent"
+      },
+      {
+        "id": "S06",
+        "tool": "query_app_logs",
+        "args": {
+          "start_time": "2026-09-24T09:18:00Z",
+          "end_time": "2026-09-24T09:23:00Z",
+          "level": "WARN"
+        },
+        "caller": "code_execution",
+        "row_count": 36,
+        "result_bytes": 9657,
+        "services": {
+          "checkout-api": 34,
+          "web-frontend": 1,
+          "inventory-service": 1
+        },
+        "metric": null
+      }
+    ],
+    "findings": [
+      {
+        "id": "F01",
+        "claim": "dep-8841 (09:14) changed payment retry: 503 added to status_forcelist, allowed_methods=None (POST now retried), backoff 0. The DB connection is held through the payment call, including retries.",
+        "source_ids": [
+          "S01"
+        ],
+        "alternative": "none"
+      },
+      {
+        "id": "F02",
+        "claim": "Gateway 5xx peaked at 87%. db_pool_in_use hit 15/15. There were 105 checkout traces with outcome 503_pool_timeout that waited 10000ms in db.acquire_connection: the 503s came from the app's own pool, not the gateway.",
+        "source_ids": [
+          "S03",
+          "S04",
+          "S02"
+        ],
+        "alternative": "none"
+      },
+      {
+        "id": "F03",
+        "claim": "CPU peaked at 36.3%, far from saturation, so CPU did not cause the failure.",
+        "source_ids": [
+          "S05"
+        ],
+        "alternative": "cpu_saturation"
+      },
+      {
+        "id": "F04",
+        "claim": "inventory-service logged a single WARN (SKU HC-2291 low stock). This is a routine business warning and the stock check is async, so it can't explain the pool exhaustion.",
+        "source_ids": [
+          "S06"
+        ],
+        "alternative": "inventory_warning"
+      },
+      {
+        "id": "F05",
+        "claim": "web-frontend logged a single WARN about the deprecated legacyTrack() analytics snippet. This is client-side and has nothing to do with the checkout-api DB pool.",
+        "source_ids": [
+          "S06"
+        ],
+        "alternative": "frontend_warning"
+      }
+    ],
+    "hypotheses": [
+      {
+        "id": "H01",
+        "hypothesis": "Trigger: a burst of payment-gateway 503s (~09:19:40). Root cause: dep-8841's retry config (retry POST on 503, no backoff) combined with holding the DB connection through the payment call, which exhausted the 15-connection pool. Failure mode: checkout-api returned its own 503s after the 10s pool timeout, on all endpoints, with p95 around 40s.",
+        "confidence": "high",
+        "supporting_evidence": "Diff and runbook contract; pool at 15/15; 105 pool_timeout traces with 10s acquire waits; CPU normal; inventory and frontend warnings unrelated.",
+        "source_ids": [
+          "S01",
+          "S02",
+          "S03",
+          "S04"
+        ]
+      }
+    ],
+    "documentation": [],
+    "alternatives_examined": [
+      "cpu_saturation",
+      "frontend_warning",
+      "inventory_warning"
+    ],
+    "replays": [
+      {
+        "id": "R01",
+        "scenario_name": "as deployed (baseline)",
+        "purpose": "baseline for every comparison",
+        "result": {
+          "scenario": {
+            "revert_retry_policy": false,
+            "remove_gateway_burst": false,
+            "pool_capacity": 15,
+            "release_connection_before_gateway": false
+          },
+          "requests_modeled": 5576,
+          "total_503s": 124,
+          "checkout_post_503s": 56,
+          "read_request_503s": 68,
+          "pool_timeout_503s": 105,
+          "gateway_503s": 19,
+          "retried_checkouts": 53,
+          "seconds_pool_saturated": 76,
+          "p95_latency_ms_checkout_post": 40568,
+          "p95_latency_ms_read_requests": 10000,
+          "errors_end_after_gateway_recovers_s": 4.4,
+          "pool_exhaustion_occurred": true
+        }
+      },
+      {
+        "id": "R02",
+        "scenario_name": "revert_retry_only",
+        "purpose": "Tests whether dep-8841's retry policy is necessary for pool exhaustion. This separates H01 from the competitor that the gateway burst plus connection holding alone would have exhausted the pool.",
+        "result": {
+          "scenario": {
+            "revert_retry_policy": true,
+            "remove_gateway_burst": false,
+            "pool_capacity": 15,
+            "release_connection_before_gateway": false
+          },
+          "requests_modeled": 5576,
+          "total_503s": 93,
+          "checkout_post_503s": 93,
+          "read_request_503s": 0,
+          "pool_timeout_503s": 0,
+          "gateway_503s": 93,
+          "retried_checkouts": 0,
+          "seconds_pool_saturated": 0,
+          "p95_latency_ms_checkout_post": 11125,
+          "p95_latency_ms_read_requests": 49,
+          "errors_end_after_gateway_recovers_s": 11.0,
+          "pool_exhaustion_occurred": false
+        }
+      },
+      {
+        "id": "R03",
+        "scenario_name": "release_connection_before_gateway_only",
+        "purpose": "Tests whether holding the DB connection across the gateway call is necessary. This separates H01 from the competitor that retries caused pure load or latency without pool coupling.",
+        "result": {
+          "scenario": {
+            "revert_retry_policy": false,
+            "remove_gateway_burst": false,
+            "pool_capacity": 15,
+            "release_connection_before_gateway": true
+          },
+          "requests_modeled": 5576,
+          "total_503s": 33,
+          "checkout_post_503s": 33,
+          "read_request_503s": 0,
+          "pool_timeout_503s": 0,
+          "gateway_503s": 33,
+          "retried_checkouts": 93,
+          "seconds_pool_saturated": 0,
+          "p95_latency_ms_checkout_post": 37938,
+          "p95_latency_ms_read_requests": 49,
+          "errors_end_after_gateway_recovers_s": 10.0,
+          "pool_exhaustion_occurred": false
+        }
+      },
+      {
+        "id": "R04",
+        "scenario_name": "remove_gateway_burst_only",
+        "purpose": "Tests whether the gateway 503 burst was the trigger. This rules out the competitor that the deploy alone, under normal traffic, exhausted the pool without any gateway failure.",
+        "result": {
+          "scenario": {
+            "revert_retry_policy": false,
+            "remove_gateway_burst": true,
+            "pool_capacity": 15,
+            "release_connection_before_gateway": false
+          },
+          "requests_modeled": 5576,
+          "total_503s": 0,
+          "checkout_post_503s": 0,
+          "read_request_503s": 0,
+          "pool_timeout_503s": 0,
+          "gateway_503s": 0,
+          "retried_checkouts": 0,
+          "seconds_pool_saturated": 0,
+          "p95_latency_ms_checkout_post": 226,
+          "p95_latency_ms_read_requests": 49,
+          "errors_end_after_gateway_recovers_s": null,
+          "pool_exhaustion_occurred": false
+        }
+      },
+      {
+        "id": "R05",
+        "scenario_name": "large_pool_only",
+        "purpose": "Tests the competitor that the pool was simply undersized (capacity as root cause) against H01's claim that zero-backoff retry amplification drives demand.",
+        "result": {
+          "scenario": {
+            "revert_retry_policy": false,
+            "remove_gateway_burst": false,
+            "pool_capacity": 120,
+            "release_connection_before_gateway": false
+          },
+          "requests_modeled": 5576,
+          "total_503s": 33,
+          "checkout_post_503s": 33,
+          "read_request_503s": 0,
+          "pool_timeout_503s": 0,
+          "gateway_503s": 33,
+          "retried_checkouts": 93,
+          "seconds_pool_saturated": 0,
+          "p95_latency_ms_checkout_post": 37938,
+          "p95_latency_ms_read_requests": 49,
+          "errors_end_after_gateway_recovers_s": 10.0,
+          "pool_exhaustion_occurred": false
+        }
+      }
+    ],
+    "retrieved_urls": []
+  },
+  "cost": {
+    "uncached_input_tokens": 11536,
+    "cache_read_tokens": 26042,
+    "cache_write_tokens": 2305,
+    "output_tokens": 9764,
+    "web_searches": 0,
+    "total_input_tokens": 39883,
+    "cost_uncached_input": 0.046144,
+    "cost_cache_read": 0.0052084,
+    "cost_cache_write": 0.011525,
+    "cost_output": 0.19528,
+    "cost_web_search": 0.0,
+    "total_cost": 0.2581574,
+    "api_calls": 6,
+    "billed_calls": 5,
+    "by_phase": {
+      "investigation": {
+        "uncached_input_tokens": 51,
+        "cache_read_tokens": 26042,
+        "cache_write_tokens": 2305,
+        "output_tokens": 1933,
+        "web_searches": 0,
+        "total_input_tokens": 28398,
+        "cost_uncached_input": 0.000204,
+        "cost_cache_read": 0.0052084,
+        "cost_cache_write": 0.011525,
+        "cost_output": 0.03866,
+        "cost_web_search": 0.0,
+        "total_cost": 0.055597400000000005,
+        "api_calls": 3,
+        "billed_calls": 2
+      },
+      "plan_medium": {
+        "uncached_input_tokens": 3055,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "output_tokens": 2065,
+        "web_searches": 0,
+        "total_input_tokens": 3055,
+        "cost_uncached_input": 0.01222,
+        "cost_cache_read": 0.0,
+        "cost_cache_write": 0.0,
+        "cost_output": 0.0413,
+        "cost_web_search": 0.0,
+        "total_cost": 0.05352,
+        "api_calls": 1,
+        "billed_calls": 1
+      },
+      "report": {
+        "uncached_input_tokens": 5375,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "output_tokens": 3075,
+        "web_searches": 0,
+        "total_input_tokens": 5375,
+        "cost_uncached_input": 0.0215,
+        "cost_cache_read": 0.0,
+        "cost_cache_write": 0.0,
+        "cost_output": 0.0615,
+        "cost_web_search": 0.0,
+        "total_cost": 0.083,
+        "api_calls": 1,
+        "billed_calls": 1
+      },
+      "plan_high": {
+        "uncached_input_tokens": 3055,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "output_tokens": 2691,
+        "web_searches": 0,
+        "total_input_tokens": 3055,
+        "cost_uncached_input": 0.01222,
+        "cost_cache_read": 0.0,
+        "cost_cache_write": 0.0,
+        "cost_output": 0.05382,
+        "cost_web_search": 0.0,
+        "total_cost": 0.06604,
+        "api_calls": 1,
+        "billed_calls": 1
+      }
+    }
+  },
+  "calls": [
+    {
+      "phase": "investigation",
+      "turn": 1,
+      "stop_reason": "tool_use",
+      "input_tokens": 26,
+      "cache_read_tokens": 13021,
+      "cache_write_tokens": 0,
+      "output_tokens": 557,
+      "web_searches": 0,
+      "cost": 0.013848200000000001,
+      "effort": "medium",
+      "blocks": [
+        "thinking",
+        "text",
+        "tool_use",
+        "server_tool_use"
+      ]
+    },
+    {
+      "phase": "investigation",
+      "turn": 2,
+      "stop_reason": "tool_use",
+      "input_tokens": 0,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "output_tokens": 0,
+      "web_searches": 0,
+      "cost": 0.0,
+      "effort": "medium",
+      "blocks": [
+        "tool_use",
+        "tool_use",
+        "tool_use",
+        "tool_use",
+        "tool_use"
+      ]
+    },
+    {
+      "phase": "investigation",
+      "turn": 3,
+      "stop_reason": "tool_use",
+      "input_tokens": 25,
+      "cache_read_tokens": 13021,
+      "cache_write_tokens": 2305,
+      "output_tokens": 1376,
+      "web_searches": 0,
+      "cost": 0.0417492,
+      "effort": "medium",
+      "blocks": [
+        "code_execution_tool_result",
+        "text",
+        "tool_use",
+        "tool_use",
+        "tool_use",
+        "tool_use",
+        "tool_use",
+        "tool_use",
+        "tool_use"
+      ]
+    },
+    {
+      "phase": "plan_medium",
+      "turn": 1,
+      "stop_reason": "end_turn",
+      "input_tokens": 3055,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "output_tokens": 2065,
+      "web_searches": 0,
+      "cost": 0.05352,
+      "effort": "medium",
+      "blocks": [
+        "thinking",
+        "text"
+      ]
+    },
+    {
+      "phase": "report",
+      "turn": 1,
+      "stop_reason": "end_turn",
+      "input_tokens": 5375,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "output_tokens": 3075,
+      "web_searches": 0,
+      "cost": 0.083,
+      "effort": "medium",
+      "blocks": [
+        "thinking",
+        "text"
+      ]
+    },
+    {
+      "phase": "plan_high",
+      "turn": 1,
+      "stop_reason": "end_turn",
+      "input_tokens": 3055,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "output_tokens": 2691,
+      "web_searches": 0,
+      "cost": 0.06604,
+      "effort": "high",
+      "blocks": [
+        "thinking",
+        "text"
+      ]
+    }
+  ]
+}

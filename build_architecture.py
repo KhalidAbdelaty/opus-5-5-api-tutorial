@@ -61,15 +61,12 @@ px, py, pw, ph = patches["pool"]
 arr = FancyArrowPatch((cx + cw / 2, cy), (px + pw / 2, py + ph), arrowstyle="-|>",
                        mutation_scale=14, linewidth=1.2, color="#34495e")
 ax.add_patch(arr)
-ax.text(cx + cw / 2 + 0.15, (cy + py + ph) / 2, "acquire + hold\nfor txn duration",
+ax.text(cx + cw / 2 + 0.15, (cy + py + ph) / 2, "database\ntransaction",
         fontsize=8, color="#34495e")
 
-ax.text(0.5, 0.4,
-        "checkout-api holds one DB connection per request for the full request\n"
-        "lifetime, including any HTTP retries against the payment gateway.",
-        fontsize=8.5, color="#555555", style="italic")
-
-out_path = os.path.join(HERE, "assets", "architecture_diagram.png")
+out_dir = os.environ.get("HARBORCART_ASSETS_DIR") or os.path.join(HERE, "assets")
+os.makedirs(out_dir, exist_ok=True)
+out_path = os.path.join(out_dir, "architecture_diagram.png")
 fig.tight_layout()
 fig.savefig(out_path, dpi=140)
 print("wrote", out_path)

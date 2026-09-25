@@ -1,0 +1,1086 @@
+{
+  "model": "claude-opus-5-5",
+  "pilot": true,
+  "task_budget": null,
+  "stop_threshold_usd": 2.5,
+  "spent_before": 0.0,
+  "red_herrings": {
+    "inventory_warning": "inventory-service low-stock warning (SKU HC-2291 below reorder threshold)",
+    "frontend_warning": "web-frontend warning about the deprecated legacyTrack() analytics snippet",
+    "cpu_saturation": "host CPU saturation on checkout-api-3"
+  },
+  "min_red_herrings_checked": 2,
+  "investigation": {
+    "stop": "finished",
+    "turns": 15,
+    "nudges": 0,
+    "task_budget": null,
+    "budget_measurement": {
+      "output_tokens": 5993,
+      "tool_result_tokens": 6597,
+      "total": 12590,
+      "counted": "output tokens of every investigation request, plus direct tool results and code execution output as Claude saw them; programmatic tool results and web search result content are not included"
+    },
+    "direct_tool_calls": 11,
+    "ptc_tool_calls": 16,
+    "caller_rejections": 0,
+    "direct_result_bytes": 3844,
+    "ptc_result_bytes": 236452,
+    "sandbox_output_bytes": 10501,
+    "code_executions": 6,
+    "progress_updates": 3,
+    "web_search_results": 10
+  },
+  "evidence_snapshot": {
+    "sources": [
+      {
+        "id": "S01",
+        "tool": "get_deployment_context",
+        "args": {},
+        "caller": "direct",
+        "row_count": 0,
+        "result_bytes": 3635,
+        "services": {},
+        "metric": null
+      },
+      {
+        "id": "S02",
+        "tool": "query_metrics",
+        "args": {
+          "metric_name": "db_pool_in_use",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 60,
+        "result_bytes": 2640,
+        "services": {},
+        "metric": "db_pool_in_use"
+      },
+      {
+        "id": "S03",
+        "tool": "query_metrics",
+        "args": {
+          "metric_name": "payment_gateway_5xx_rate",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 60,
+        "result_bytes": 2772,
+        "services": {},
+        "metric": "payment_gateway_5xx_rate"
+      },
+      {
+        "id": "S04",
+        "tool": "query_metrics",
+        "args": {
+          "metric_name": "cpu_percent",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 60,
+        "result_bytes": 2810,
+        "services": {},
+        "metric": "cpu_percent"
+      },
+      {
+        "id": "S05",
+        "tool": "query_metrics",
+        "args": {
+          "metric_name": "checkout_5xx_rate",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 60,
+        "result_bytes": 2763,
+        "services": {},
+        "metric": "checkout_5xx_rate"
+      },
+      {
+        "id": "S06",
+        "tool": "query_metrics",
+        "args": {
+          "metric_name": "checkout_p95_latency_ms",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 60,
+        "result_bytes": 2778,
+        "services": {},
+        "metric": "checkout_p95_latency_ms"
+      },
+      {
+        "id": "S07",
+        "tool": "query_app_logs",
+        "args": {
+          "level": "WARN",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 36,
+        "result_bytes": 9657,
+        "services": {
+          "checkout-api": 34,
+          "web-frontend": 1,
+          "inventory-service": 1
+        },
+        "metric": null
+      },
+      {
+        "id": "S08",
+        "tool": "query_app_logs",
+        "args": {
+          "level": "ERROR",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 262,
+        "result_bytes": 45240,
+        "services": {
+          "payment-gateway": 138,
+          "checkout-api": 124
+        },
+        "metric": null
+      },
+      {
+        "id": "S09",
+        "tool": "query_app_logs",
+        "args": {
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z",
+          "service": "payment-gateway",
+          "level": "ERROR"
+        },
+        "caller": "code_execution",
+        "row_count": 138,
+        "result_bytes": 25336,
+        "services": {
+          "payment-gateway": 138
+        },
+        "metric": null
+      },
+      {
+        "id": "S10",
+        "tool": "query_app_logs",
+        "args": {
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z",
+          "contains": "db_pool_checkout_timeout"
+        },
+        "caller": "code_execution",
+        "row_count": 105,
+        "result_bytes": 28593,
+        "services": {
+          "checkout-api": 105
+        },
+        "metric": null
+      },
+      {
+        "id": "S11",
+        "tool": "query_app_logs",
+        "args": {
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z",
+          "contains": "payment_gateway_unavailable"
+        },
+        "caller": "code_execution",
+        "row_count": 19,
+        "result_bytes": 5536,
+        "services": {
+          "checkout-api": 19
+        },
+        "metric": null
+      },
+      {
+        "id": "S12",
+        "tool": "query_app_logs",
+        "args": {
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z",
+          "contains": "completed after retries"
+        },
+        "caller": "code_execution",
+        "row_count": 34,
+        "result_bytes": 9220,
+        "services": {
+          "checkout-api": 34
+        },
+        "metric": null
+      },
+      {
+        "id": "S13",
+        "tool": "query_app_logs",
+        "args": {
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z",
+          "service": "inventory-service"
+        },
+        "caller": "code_execution",
+        "row_count": 1,
+        "result_bytes": 256,
+        "services": {
+          "inventory-service": 1
+        },
+        "metric": null
+      },
+      {
+        "id": "S14",
+        "tool": "query_app_logs",
+        "args": {
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z",
+          "service": "web-frontend"
+        },
+        "caller": "code_execution",
+        "row_count": 1,
+        "result_bytes": 293,
+        "services": {
+          "web-frontend": 1
+        },
+        "metric": null
+      },
+      {
+        "id": "S15",
+        "tool": "query_traces",
+        "args": {
+          "outcome": "503_pool_timeout",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 105,
+        "result_bytes": 25933,
+        "services": {},
+        "metric": null
+      },
+      {
+        "id": "S16",
+        "tool": "query_traces",
+        "args": {
+          "outcome": "503_gateway",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 19,
+        "result_bytes": 13177,
+        "services": {},
+        "metric": null
+      },
+      {
+        "id": "S17",
+        "tool": "query_traces",
+        "args": {
+          "outcome": "200",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 2450,
+        "result_bytes": 59128,
+        "services": {},
+        "metric": null
+      }
+    ],
+    "findings": [
+      {
+        "id": "F01",
+        "claim": "Deploy dep-8841 (09:14:00\u201309:14:47Z, all 6 instances, only file changed: checkout/payment_client.py) changed the payment Retry settings. It added 503 to status_forcelist, changed allowed_methods from {\"GET\"} to None (so POST charges are now retried), and changed backoff_factor from 0.5 to 0. The runbook says the DB connection is held through the whole payment call, retries included. Pool is 15 per instance, with pool_timeout=10s.",
+        "source_ids": [
+          "S01"
+        ],
+        "alternative": "none"
+      },
+      {
+        "id": "F02",
+        "claim": "TRIGGER: a burst of third-party payment gateway errors (HTTP 503 \"upstream capacity\" on POST /v1/charges). There were 138 gateway ERROR logs between 09:19:37.951Z and 09:21:09.037Z. The metric is nonzero from 09:19:50 to 09:21:35 and peaks at 87%. This is a short burst of the kind the runbook calls normal and self-resolving.",
+        "source_ids": [
+          "S03",
+          "S09",
+          "S01"
+        ],
+        "alternative": "none"
+      },
+      {
+        "id": "F03",
+        "claim": "Traces show checkout-api retrying POST charges up to 4 times with no backoff while holding the DB connection. Example: req-01832 acquired its connection in 4 ms, got 4 \u00d7 503 (8.4s, 6.3s, 6.3s, 10.4s), and released after 31,384 ms. Even successful checkouts held connections for 7\u201328s (34 \"completed after retries\" logs with attempts 2\u20134). Pool in use rose from about 1 to 15/15 at 09:19:35\u201309:19:50 and stayed saturated until about 09:21:00.",
+        "source_ids": [
+          "S16",
+          "S12",
+          "S11",
+          "S02"
+        ],
+        "alternative": "none"
+      },
+      {
+        "id": "F04",
+        "claim": "FAILURE MODE: most checkout 5xx are checkout-api's own pool-timeout 503s, not gateway failures passed through. There are 105 traces with outcome 503_pool_timeout (db.acquire_connection timed out at 10,000 ms, pool_in_use=15/15), split across /orders/{id} 42, /checkout 37, /cart 26. There are only 19 503_gateway traces, all on /checkout. So read-only GET /cart and /orders, which never call the gateway, also failed. Customers saw roughly 10s waits followed by generic 503s on every endpoint. The checkout 5xx rate peaked at 70.8% and the p95 latency peaked at about 42s.",
+        "source_ids": [
+          "S15",
+          "S16",
+          "S10",
+          "S05",
+          "S06"
+        ],
+        "alternative": "none"
+      },
+      {
+        "id": "F05",
+        "claim": "The inventory-service warning is ruled out. It is a single WARN at 09:20:30 (SKU HC-2291 below reorder threshold, 4 remaining), which is business information, not an error. It arrives after the pool had already saturated (09:19:50) and pool timeouts had started (09:19:56). No inventory span appears in the failing traces: pool-timeout traces fail at db.acquire_connection, and gateway traces fail at payment_gateway.charge.",
+        "source_ids": [
+          "S13",
+          "S07",
+          "S15",
+          "S16",
+          "S02"
+        ],
+        "alternative": "inventory_warning"
+      },
+      {
+        "id": "F06",
+        "claim": "The web-frontend warning is ruled out. It is a single WARN at 09:20:10 about a deprecated legacyTrack() analytics snippet, and it says it has no functional impact. It comes after the 5xx onset. The 5xx responses come from checkout-api itself (pool timeout and gateway exhaustion), not from the frontend.",
+        "source_ids": [
+          "S14",
+          "S07",
+          "S15",
+          "S05"
+        ],
+        "alternative": "frontend_warning"
+      },
+      {
+        "id": "F07",
+        "claim": "Host CPU saturation is ruled out. cpu_percent on checkout-api-3 ranged from 25.5% to 35.9% across 09:13\u201309:25, with only a slight rise during the incident. The failing requests spent their time waiting on DB pool acquisition and gateway I/O, not on compute.",
+        "source_ids": [
+          "S04",
+          "S15"
+        ],
+        "alternative": "cpu_saturation"
+      }
+    ],
+    "hypotheses": [
+      {
+        "id": "H01",
+        "hypothesis": "ROOT CAUSE: deploy dep-8841's retry change (retrying POST on 503, no backoff, up to 4 attempts) combined with the design that holds the DB connection across the payment call. Together they turned a short third-party gateway 503 burst into DB pool exhaustion (15/15) on checkout-api-3. That caused 10s pool-timeout 503s on all endpoints, including /cart and /orders. Under the previous config, POST charges would have failed fast on the first 503, releasing connections, and the damage would have been limited to the gateway-failed checkouts. Remediation: roll back with kubectl rollout undo, or restore allowed_methods to idempotent verbs, add backoff, and cap the total retry time. Longer term, release the DB connection before the external call and add idempotency keys before retrying any POST charge.",
+        "confidence": "high",
+        "supporting_evidence": "Diff and runbook (S01). Gateway burst from 09:19:37 to 09:21:09 (S09, S03). Retried POSTs holding connections for 7\u201331s (S16, S12, S11). Pool at 15/15 from 09:19:50 to 09:21:00 (S02). 105 pool-timeout 503s vs 19 gateway 503s, with 68 of the pool timeouts on non-payment GETs (S15, S10). The checkout 5xx window matches pool saturation (S05). Alternatives ruled out: S13, S14, S04. Caveat: there is no pre-deploy gateway burst to compare against, so the counterfactual (old config would not have exhausted the pool) is inferred from the docs and the diff, and should be tested in replay.",
+        "source_ids": [
+          "S01",
+          "S02",
+          "S03",
+          "S05",
+          "S09",
+          "S10",
+          "S11",
+          "S12",
+          "S15",
+          "S16"
+        ]
+      }
+    ],
+    "documentation": [
+      {
+        "id": "D01",
+        "url": "https://urllib3.readthedocs.io/en/stable/reference/urllib3.util.html",
+        "claim": "urllib3 Retry: allowed_methods defaults to idempotent verbs only; \"Set to a None value to retry on any verb\". A status_forcelist retry happens only if the request method is in allowed_methods. Under the old config (allowed_methods={\"GET\"}), POST /v1/charges 503s would not have been retried. Under the new config (None, with 503 in forcelist and backoff 0), they are. This is documented behavior, not incident evidence."
+      }
+    ],
+    "alternatives_examined": [
+      "cpu_saturation",
+      "frontend_warning",
+      "inventory_warning"
+    ]
+  },
+  "t": 152.0,
+  "type": "done",
+  "stop": "pilot_complete",
+  "report": {
+    "error": "run ended without an accepted report (pilot_complete)"
+  },
+  "report_accepted": false,
+  "report_attempts": 0,
+  "report_problems": [],
+  "replay_plans": {},
+  "plan_comparison": null,
+  "replays": [],
+  "evidence_ledger": {
+    "sources": [
+      {
+        "id": "S01",
+        "tool": "get_deployment_context",
+        "args": {},
+        "caller": "direct",
+        "row_count": 0,
+        "result_bytes": 3635,
+        "services": {},
+        "metric": null
+      },
+      {
+        "id": "S02",
+        "tool": "query_metrics",
+        "args": {
+          "metric_name": "db_pool_in_use",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 60,
+        "result_bytes": 2640,
+        "services": {},
+        "metric": "db_pool_in_use"
+      },
+      {
+        "id": "S03",
+        "tool": "query_metrics",
+        "args": {
+          "metric_name": "payment_gateway_5xx_rate",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 60,
+        "result_bytes": 2772,
+        "services": {},
+        "metric": "payment_gateway_5xx_rate"
+      },
+      {
+        "id": "S04",
+        "tool": "query_metrics",
+        "args": {
+          "metric_name": "cpu_percent",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 60,
+        "result_bytes": 2810,
+        "services": {},
+        "metric": "cpu_percent"
+      },
+      {
+        "id": "S05",
+        "tool": "query_metrics",
+        "args": {
+          "metric_name": "checkout_5xx_rate",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 60,
+        "result_bytes": 2763,
+        "services": {},
+        "metric": "checkout_5xx_rate"
+      },
+      {
+        "id": "S06",
+        "tool": "query_metrics",
+        "args": {
+          "metric_name": "checkout_p95_latency_ms",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 60,
+        "result_bytes": 2778,
+        "services": {},
+        "metric": "checkout_p95_latency_ms"
+      },
+      {
+        "id": "S07",
+        "tool": "query_app_logs",
+        "args": {
+          "level": "WARN",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 36,
+        "result_bytes": 9657,
+        "services": {
+          "checkout-api": 34,
+          "web-frontend": 1,
+          "inventory-service": 1
+        },
+        "metric": null
+      },
+      {
+        "id": "S08",
+        "tool": "query_app_logs",
+        "args": {
+          "level": "ERROR",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 262,
+        "result_bytes": 45240,
+        "services": {
+          "payment-gateway": 138,
+          "checkout-api": 124
+        },
+        "metric": null
+      },
+      {
+        "id": "S09",
+        "tool": "query_app_logs",
+        "args": {
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z",
+          "service": "payment-gateway",
+          "level": "ERROR"
+        },
+        "caller": "code_execution",
+        "row_count": 138,
+        "result_bytes": 25336,
+        "services": {
+          "payment-gateway": 138
+        },
+        "metric": null
+      },
+      {
+        "id": "S10",
+        "tool": "query_app_logs",
+        "args": {
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z",
+          "contains": "db_pool_checkout_timeout"
+        },
+        "caller": "code_execution",
+        "row_count": 105,
+        "result_bytes": 28593,
+        "services": {
+          "checkout-api": 105
+        },
+        "metric": null
+      },
+      {
+        "id": "S11",
+        "tool": "query_app_logs",
+        "args": {
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z",
+          "contains": "payment_gateway_unavailable"
+        },
+        "caller": "code_execution",
+        "row_count": 19,
+        "result_bytes": 5536,
+        "services": {
+          "checkout-api": 19
+        },
+        "metric": null
+      },
+      {
+        "id": "S12",
+        "tool": "query_app_logs",
+        "args": {
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z",
+          "contains": "completed after retries"
+        },
+        "caller": "code_execution",
+        "row_count": 34,
+        "result_bytes": 9220,
+        "services": {
+          "checkout-api": 34
+        },
+        "metric": null
+      },
+      {
+        "id": "S13",
+        "tool": "query_app_logs",
+        "args": {
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z",
+          "service": "inventory-service"
+        },
+        "caller": "code_execution",
+        "row_count": 1,
+        "result_bytes": 256,
+        "services": {
+          "inventory-service": 1
+        },
+        "metric": null
+      },
+      {
+        "id": "S14",
+        "tool": "query_app_logs",
+        "args": {
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z",
+          "service": "web-frontend"
+        },
+        "caller": "code_execution",
+        "row_count": 1,
+        "result_bytes": 293,
+        "services": {
+          "web-frontend": 1
+        },
+        "metric": null
+      },
+      {
+        "id": "S15",
+        "tool": "query_traces",
+        "args": {
+          "outcome": "503_pool_timeout",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 105,
+        "result_bytes": 25933,
+        "services": {},
+        "metric": null
+      },
+      {
+        "id": "S16",
+        "tool": "query_traces",
+        "args": {
+          "outcome": "503_gateway",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 19,
+        "result_bytes": 13177,
+        "services": {},
+        "metric": null
+      },
+      {
+        "id": "S17",
+        "tool": "query_traces",
+        "args": {
+          "outcome": "200",
+          "start_time": "2026-09-24T09:13:00Z",
+          "end_time": "2026-09-24T09:25:00Z"
+        },
+        "caller": "code_execution",
+        "row_count": 2450,
+        "result_bytes": 59128,
+        "services": {},
+        "metric": null
+      }
+    ],
+    "findings": [
+      {
+        "id": "F01",
+        "claim": "Deploy dep-8841 (09:14:00\u201309:14:47Z, all 6 instances, only file changed: checkout/payment_client.py) changed the payment Retry settings. It added 503 to status_forcelist, changed allowed_methods from {\"GET\"} to None (so POST charges are now retried), and changed backoff_factor from 0.5 to 0. The runbook says the DB connection is held through the whole payment call, retries included. Pool is 15 per instance, with pool_timeout=10s.",
+        "source_ids": [
+          "S01"
+        ],
+        "alternative": "none"
+      },
+      {
+        "id": "F02",
+        "claim": "TRIGGER: a burst of third-party payment gateway errors (HTTP 503 \"upstream capacity\" on POST /v1/charges). There were 138 gateway ERROR logs between 09:19:37.951Z and 09:21:09.037Z. The metric is nonzero from 09:19:50 to 09:21:35 and peaks at 87%. This is a short burst of the kind the runbook calls normal and self-resolving.",
+        "source_ids": [
+          "S03",
+          "S09",
+          "S01"
+        ],
+        "alternative": "none"
+      },
+      {
+        "id": "F03",
+        "claim": "Traces show checkout-api retrying POST charges up to 4 times with no backoff while holding the DB connection. Example: req-01832 acquired its connection in 4 ms, got 4 \u00d7 503 (8.4s, 6.3s, 6.3s, 10.4s), and released after 31,384 ms. Even successful checkouts held connections for 7\u201328s (34 \"completed after retries\" logs with attempts 2\u20134). Pool in use rose from about 1 to 15/15 at 09:19:35\u201309:19:50 and stayed saturated until about 09:21:00.",
+        "source_ids": [
+          "S16",
+          "S12",
+          "S11",
+          "S02"
+        ],
+        "alternative": "none"
+      },
+      {
+        "id": "F04",
+        "claim": "FAILURE MODE: most checkout 5xx are checkout-api's own pool-timeout 503s, not gateway failures passed through. There are 105 traces with outcome 503_pool_timeout (db.acquire_connection timed out at 10,000 ms, pool_in_use=15/15), split across /orders/{id} 42, /checkout 37, /cart 26. There are only 19 503_gateway traces, all on /checkout. So read-only GET /cart and /orders, which never call the gateway, also failed. Customers saw roughly 10s waits followed by generic 503s on every endpoint. The checkout 5xx rate peaked at 70.8% and the p95 latency peaked at about 42s.",
+        "source_ids": [
+          "S15",
+          "S16",
+          "S10",
+          "S05",
+          "S06"
+        ],
+        "alternative": "none"
+      },
+      {
+        "id": "F05",
+        "claim": "The inventory-service warning is ruled out. It is a single WARN at 09:20:30 (SKU HC-2291 below reorder threshold, 4 remaining), which is business information, not an error. It arrives after the pool had already saturated (09:19:50) and pool timeouts had started (09:19:56). No inventory span appears in the failing traces: pool-timeout traces fail at db.acquire_connection, and gateway traces fail at payment_gateway.charge.",
+        "source_ids": [
+          "S13",
+          "S07",
+          "S15",
+          "S16",
+          "S02"
+        ],
+        "alternative": "inventory_warning"
+      },
+      {
+        "id": "F06",
+        "claim": "The web-frontend warning is ruled out. It is a single WARN at 09:20:10 about a deprecated legacyTrack() analytics snippet, and it says it has no functional impact. It comes after the 5xx onset. The 5xx responses come from checkout-api itself (pool timeout and gateway exhaustion), not from the frontend.",
+        "source_ids": [
+          "S14",
+          "S07",
+          "S15",
+          "S05"
+        ],
+        "alternative": "frontend_warning"
+      },
+      {
+        "id": "F07",
+        "claim": "Host CPU saturation is ruled out. cpu_percent on checkout-api-3 ranged from 25.5% to 35.9% across 09:13\u201309:25, with only a slight rise during the incident. The failing requests spent their time waiting on DB pool acquisition and gateway I/O, not on compute.",
+        "source_ids": [
+          "S04",
+          "S15"
+        ],
+        "alternative": "cpu_saturation"
+      }
+    ],
+    "hypotheses": [
+      {
+        "id": "H01",
+        "hypothesis": "ROOT CAUSE: deploy dep-8841's retry change (retrying POST on 503, no backoff, up to 4 attempts) combined with the design that holds the DB connection across the payment call. Together they turned a short third-party gateway 503 burst into DB pool exhaustion (15/15) on checkout-api-3. That caused 10s pool-timeout 503s on all endpoints, including /cart and /orders. Under the previous config, POST charges would have failed fast on the first 503, releasing connections, and the damage would have been limited to the gateway-failed checkouts. Remediation: roll back with kubectl rollout undo, or restore allowed_methods to idempotent verbs, add backoff, and cap the total retry time. Longer term, release the DB connection before the external call and add idempotency keys before retrying any POST charge.",
+        "confidence": "high",
+        "supporting_evidence": "Diff and runbook (S01). Gateway burst from 09:19:37 to 09:21:09 (S09, S03). Retried POSTs holding connections for 7\u201331s (S16, S12, S11). Pool at 15/15 from 09:19:50 to 09:21:00 (S02). 105 pool-timeout 503s vs 19 gateway 503s, with 68 of the pool timeouts on non-payment GETs (S15, S10). The checkout 5xx window matches pool saturation (S05). Alternatives ruled out: S13, S14, S04. Caveat: there is no pre-deploy gateway burst to compare against, so the counterfactual (old config would not have exhausted the pool) is inferred from the docs and the diff, and should be tested in replay.",
+        "source_ids": [
+          "S01",
+          "S02",
+          "S03",
+          "S05",
+          "S09",
+          "S10",
+          "S11",
+          "S12",
+          "S15",
+          "S16"
+        ]
+      }
+    ],
+    "documentation": [
+      {
+        "id": "D01",
+        "url": "https://urllib3.readthedocs.io/en/stable/reference/urllib3.util.html",
+        "claim": "urllib3 Retry: allowed_methods defaults to idempotent verbs only; \"Set to a None value to retry on any verb\". A status_forcelist retry happens only if the request method is in allowed_methods. Under the old config (allowed_methods={\"GET\"}), POST /v1/charges 503s would not have been retried. Under the new config (None, with 503 in forcelist and backoff 0), they are. This is documented behavior, not incident evidence."
+      }
+    ],
+    "alternatives_examined": [
+      "cpu_saturation",
+      "frontend_warning",
+      "inventory_warning"
+    ],
+    "replays": [],
+    "retrieved_urls": [
+      "https://urllib3.readthedocs.io/en/1.26.14/reference/urllib3.util.html",
+      "https://urllib3.readthedocs.io/en/1.26.19/reference/urllib3.util.html",
+      "https://urllib3.readthedocs.io/en/1.26.3/reference/urllib3.util.html",
+      "https://urllib3.readthedocs.io/en/1.26.5/reference/urllib3.util.html",
+      "https://urllib3.readthedocs.io/en/1.26.8/reference/urllib3.util.html",
+      "https://urllib3.readthedocs.io/en/1.26.9/reference/urllib3.util.html",
+      "https://urllib3.readthedocs.io/en/2.0.4/reference/urllib3.util.html",
+      "https://urllib3.readthedocs.io/en/2.0.6/reference/urllib3.util.html",
+      "https://urllib3.readthedocs.io/en/latest/reference/urllib3.util.html",
+      "https://urllib3.readthedocs.io/en/stable/reference/urllib3.util.html"
+    ]
+  },
+  "cost": {
+    "uncached_input_tokens": 18,
+    "cache_read_tokens": 126829,
+    "cache_write_tokens": 24736,
+    "output_tokens": 5993,
+    "web_searches": 1,
+    "total_input_tokens": 151583,
+    "cost_uncached_input": 7.2e-05,
+    "cost_cache_read": 0.025365800000000004,
+    "cost_cache_write": 0.12368,
+    "cost_output": 0.11986,
+    "cost_web_search": 0.01,
+    "total_cost": 0.2789778,
+    "api_calls": 15,
+    "billed_calls": 5,
+    "by_phase": {
+      "investigation": {
+        "uncached_input_tokens": 18,
+        "cache_read_tokens": 126829,
+        "cache_write_tokens": 24736,
+        "output_tokens": 5993,
+        "web_searches": 1,
+        "total_input_tokens": 151583,
+        "cost_uncached_input": 7.2e-05,
+        "cost_cache_read": 0.025365800000000004,
+        "cost_cache_write": 0.12368,
+        "cost_output": 0.11986,
+        "cost_web_search": 0.01,
+        "total_cost": 0.2789778,
+        "api_calls": 15,
+        "billed_calls": 5
+      }
+    }
+  },
+  "calls": [
+    {
+      "phase": "investigation",
+      "turn": 1,
+      "stop_reason": "tool_use",
+      "input_tokens": 4,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 13021,
+      "output_tokens": 439,
+      "web_searches": 0,
+      "cost": 0.073901,
+      "effort": "medium",
+      "blocks": [
+        "thinking",
+        "text",
+        "tool_use",
+        "server_tool_use"
+      ]
+    },
+    {
+      "phase": "investigation",
+      "turn": 2,
+      "stop_reason": "tool_use",
+      "input_tokens": 0,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "output_tokens": 0,
+      "web_searches": 0,
+      "cost": 0.0,
+      "effort": "medium",
+      "blocks": [
+        "tool_use",
+        "tool_use",
+        "tool_use",
+        "tool_use",
+        "tool_use"
+      ]
+    },
+    {
+      "phase": "investigation",
+      "turn": 3,
+      "stop_reason": "tool_use",
+      "input_tokens": 2,
+      "cache_read_tokens": 13021,
+      "cache_write_tokens": 2310,
+      "output_tokens": 578,
+      "web_searches": 0,
+      "cost": 0.0257222,
+      "effort": "medium",
+      "blocks": [
+        "code_execution_tool_result",
+        "thinking",
+        "thinking",
+        "server_tool_use",
+        "tool_use"
+      ]
+    },
+    {
+      "phase": "investigation",
+      "turn": 4,
+      "stop_reason": "tool_use",
+      "input_tokens": 0,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "output_tokens": 0,
+      "web_searches": 0,
+      "cost": 0.0,
+      "effort": "medium",
+      "blocks": [
+        "tool_use"
+      ]
+    },
+    {
+      "phase": "investigation",
+      "turn": 5,
+      "stop_reason": "tool_use",
+      "input_tokens": 2,
+      "cache_read_tokens": 15331,
+      "cache_write_tokens": 1732,
+      "output_tokens": 670,
+      "web_searches": 0,
+      "cost": 0.025134200000000002,
+      "effort": "medium",
+      "blocks": [
+        "code_execution_tool_result",
+        "thinking",
+        "thinking",
+        "server_tool_use",
+        "tool_use"
+      ]
+    },
+    {
+      "phase": "investigation",
+      "turn": 6,
+      "stop_reason": "tool_use",
+      "input_tokens": 0,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "output_tokens": 0,
+      "web_searches": 0,
+      "cost": 0.0,
+      "effort": "medium",
+      "blocks": [
+        "tool_use"
+      ]
+    },
+    {
+      "phase": "investigation",
+      "turn": 7,
+      "stop_reason": "tool_use",
+      "input_tokens": 0,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "output_tokens": 0,
+      "web_searches": 0,
+      "cost": 0.0,
+      "effort": "medium",
+      "blocks": [
+        "tool_use"
+      ]
+    },
+    {
+      "phase": "investigation",
+      "turn": 8,
+      "stop_reason": "tool_use",
+      "input_tokens": 0,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "output_tokens": 0,
+      "web_searches": 0,
+      "cost": 0.0,
+      "effort": "medium",
+      "blocks": [
+        "tool_use"
+      ]
+    },
+    {
+      "phase": "investigation",
+      "turn": 9,
+      "stop_reason": "tool_use",
+      "input_tokens": 0,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "output_tokens": 0,
+      "web_searches": 0,
+      "cost": 0.0,
+      "effort": "medium",
+      "blocks": [
+        "tool_use"
+      ]
+    },
+    {
+      "phase": "investigation",
+      "turn": 10,
+      "stop_reason": "tool_use",
+      "input_tokens": 0,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "output_tokens": 0,
+      "web_searches": 0,
+      "cost": 0.0,
+      "effort": "medium",
+      "blocks": [
+        "tool_use"
+      ]
+    },
+    {
+      "phase": "investigation",
+      "turn": 11,
+      "stop_reason": "tool_use",
+      "input_tokens": 0,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "output_tokens": 0,
+      "web_searches": 0,
+      "cost": 0.0,
+      "effort": "medium",
+      "blocks": [
+        "tool_use"
+      ]
+    },
+    {
+      "phase": "investigation",
+      "turn": 12,
+      "stop_reason": "tool_use",
+      "input_tokens": 0,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "output_tokens": 0,
+      "web_searches": 0,
+      "cost": 0.0,
+      "effort": "medium",
+      "blocks": [
+        "tool_use"
+      ]
+    },
+    {
+      "phase": "investigation",
+      "turn": 13,
+      "stop_reason": "tool_use",
+      "input_tokens": 0,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "output_tokens": 0,
+      "web_searches": 0,
+      "cost": 0.0,
+      "effort": "medium",
+      "blocks": [
+        "tool_use"
+      ]
+    },
+    {
+      "phase": "investigation",
+      "turn": 14,
+      "stop_reason": "tool_use",
+      "input_tokens": 8,
+      "cache_read_tokens": 76931,
+      "cache_write_tokens": 4483,
+      "output_tokens": 3712,
+      "web_searches": 1,
+      "cost": 0.12207319999999999,
+      "effort": "medium",
+      "blocks": [
+        "code_execution_tool_result",
+        "thinking",
+        "thinking",
+        "server_tool_use",
+        "server_tool_use",
+        "web_search_tool_result",
+        "code_execution_tool_result",
+        "server_tool_use",
+        "code_execution_tool_result",
+        "server_tool_use",
+        "code_execution_tool_result",
+        "text",
+        "tool_use",
+        "tool_use",
+        "tool_use",
+        "tool_use",
+        "tool_use",
+        "tool_use",
+        "tool_use",
+        "tool_use",
+        "tool_use"
+      ]
+    },
+    {
+      "phase": "investigation",
+      "turn": 15,
+      "stop_reason": "tool_use",
+      "input_tokens": 2,
+      "cache_read_tokens": 21546,
+      "cache_write_tokens": 3190,
+      "output_tokens": 594,
+      "web_searches": 0,
+      "cost": 0.0321472,
+      "effort": "medium",
+      "blocks": [
+        "text",
+        "tool_use"
+      ]
+    }
+  ]
+}
